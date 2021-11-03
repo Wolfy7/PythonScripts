@@ -45,12 +45,7 @@ def greate_html(movie):
     <p style="font-size: 18px;">
     {movie_description}
     </p>
-    <h2 style="margin: 0px 0px 6px 0px;">Sonntag 01.08.</h2>
-    <a href="https://www.kinopolis.de/kg/programm/vorstellung/DBC41000023BYSKOAB" style="cursor: pointer;text-decoration: none;display: inline-block;">
-    <span style="background-color: #205ac3; color: white; text-align: center;display: block;width: 160px;">Erster Kinobesuch</span>
-    <span style="text-align: center;text-decoration: none;display: block;width: 160px;font-size: 28px;color: #333;">14:00</span>
-    <span style="color: #333;background-color: #ececec;border-top: 1px solid #fff;display: block;width: 160px;text-align: center;">Kino 9</span>
-    </a>
+    {movie_events}
 </div>
 </body>
 </html>
@@ -60,7 +55,8 @@ def greate_html(movie):
         img_src = movie["movie_img_src"],
         movie_specs = specs,
         movie_description = movie["description"],
-        movie_events = events
+        movie_events = events,
+        date = date
     )
     return html
 
