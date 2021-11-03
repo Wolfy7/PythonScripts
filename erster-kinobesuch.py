@@ -20,7 +20,7 @@ URL = BASE_URL + '/kg/events/filmreihe/erster-kinobesuch'
 def greate_html(movie):
     specs = "<p>"
     for key, value in movie["movie_specs"].items():
-        specs += key + "<strong>" + value + "</strong>"
+        specs += key + ": <strong>" + value + " </strong>"
     specs += "</p>"
 
     events = ""
