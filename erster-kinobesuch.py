@@ -55,8 +55,7 @@ def greate_html(movie):
         img_src = movie["movie_img_src"],
         movie_specs = specs,
         movie_description = movie["description"],
-        movie_events = events,
-        date = date
+        movie_events = events
     )
     return html
 
