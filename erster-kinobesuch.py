@@ -1,10 +1,13 @@
+#!/usr/bin/env python3
 import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import make_msgid
 import requests
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
+import logging
 
 SMTP_SERVER = [SMTP_SERVER_ADRESS]
 SMTP_PORT = [SMTP_SERVER_PORT]
@@ -20,7 +23,7 @@ URL = BASE_URL + '/kg/events/filmreihe/erster-kinobesuch'
 def greate_html(movie):
     specs = "<p>"
     for key, value in movie["movie_specs"].items():
-        specs += key + "<strong>" + value + "</strong>"
+        specs += key + ": <strong>" + value + " </strong>"
     specs += "</p>"
 
     events = ""
@@ -45,12 +48,7 @@ def greate_html(movie):
     <p style="font-size: 18px;">
     {movie_description}
     </p>
-    <h2 style="margin: 0px 0px 6px 0px;">Sonntag 01.08.</h2>
-    <a href="https://www.kinopolis.de/kg/programm/vorstellung/DBC41000023BYSKOAB" style="cursor: pointer;text-decoration: none;display: inline-block;">
-    <span style="background-color: #205ac3; color: white; text-align: center;display: block;width: 160px;">Erster Kinobesuch</span>
-    <span style="text-align: center;text-decoration: none;display: block;width: 160px;font-size: 28px;color: #333;">14:00</span>
-    <span style="color: #333;background-color: #ececec;border-top: 1px solid #fff;display: block;width: 160px;text-align: center;">Kino 9</span>
-    </a>
+    {movie_events}
 </div>
 </body>
 </html>
@@ -67,19 +65,49 @@ def greate_html(movie):
 
 def send_email(html):
     server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-    server.starttls()
-    server.login(SENDER_ACCOUNT, SENDER_PASSWORD)
+    try:
+        server.starttls()
+    except smtplib.SMTPHeloError:
+        logging.warning('The server didn’t reply properly to the HELO greeting.')
+    except smtplib.SMTPNotSupportedError:
+        logging.warning('The server does not support the STARTTLS extension.')
+    except smtplib.SMTPRuntimeErrorHeloError:
+        logging.warning('SSL/TLS support is not available to your Python interpreter.')
+
+    try:
+        server.login(SENDER_ACCOUNT, SENDER_PASSWORD)
+    except smtplib.SMTPHeloError:
+        logging.warning('The server didn’t reply properly to the HELO greeting.')
+    except smtplib.SMTPAuthenticationError:
+        logging.warning('The server didn’t accept the username/password combination.')
+    except smtplib.SMTPNotSupportedError:
+        logging.warning('The AUTH command is not supported by the server.')
+    except smtplib.SMTPException:
+        logging.warning('No suitable authentication method was found.')
 
     message = MIMEMultipart('alternative')
     message['From'] = SENDER_NAME
     message['To'] = RECEIVER
     message['Subject'] = "Mein erster Kinobesuch - " + URL
+    message['Message-ID'] = make_msgid()
 
     message.attach(MIMEText(html, 'html'))
     text = message.as_string()
 
-    server.sendmail(SENDER_NAME, RECEIVER, text)
-    server.quit
+    try:
+        server.sendmail(SENDER_NAME, RECEIVER, text)
+    except smtplib.SMTPRecipientsRefused:
+        logging.warning('ll recipients were refused. Nobody got the mail. The recipients attribute of the exception object is a dictionary with information about the refused recipients (like the one returned when at least one recipient was accepted).')
+    except smtplib.SMTPHeloError:
+        logging.warning('The server didn’t reply properly to the HELO greeting.')
+    except smtplib.SMTPSenderRefused:
+        logging.warning('The server didn’t accept the from_addr.')
+    except smtplib.SMTPDataError:
+        logging.warning('The server replied with an unexpected error code (other than a refusal of a recipient).')
+    except smtplib.SMTPNotSupportedError:
+        logging.warning('SMTPUTF8 was given in the mail_options but is not supported by the server.')
+
+    server.quit()
     print("E-Mail wurde versandt.")
 
 
@@ -93,8 +121,10 @@ def find_movies():
         response.raise_for_status()
     except HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
+        logging.warning(f"HTTP error occurred: {http_err}")
     except Exception as err:
         print(f"Other error occurred: {err}")
+        logging.warning(f"Other error occurred: {err}")
     else:
         # Parse the response
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -140,6 +170,7 @@ def find_movies():
 
 
 def main():
+    logging.basicConfig(filename='erster-kinobesuch.log', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     print("*" * 6, "Mein erster Kinobesuch", "*" * 6)
     file = "movies.txt"
     know_movies = []
@@ -155,10 +186,12 @@ def main():
 
         if movie in know_movies:
             print("Movie already know")
+            # logging.debug('Movie already know')
         else:
             print("New movie")
             html = greate_html(movies[movie])
             send_email(html)
+            logging.info(f"New movie: {movie}")
             f = open(file, "a")
             f.write(movie + "\n")
             f.close()
